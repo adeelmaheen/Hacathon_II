@@ -1,0 +1,132 @@
+# Monitoring and Logging Configuration for Todo Chatbot
+# This includes Prometheus, Grafana, and logging setup
+
+---
+# Prometheus ServiceMonitor for scraping metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: todo-chatbot-backend
+  namespace: todo-app
+  labels:
+    app: todo-chatbot-backend
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: backend
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
+
+---
+# Grafana Dashboard ConfigMap (optional)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-todo-chatbot
+  namespace: todo-app
+  labels:
+    grafana_dashboard: "1"
+data:
+  todo-chatbot.json: |
+    {
+      "dashboard": {
+        "title": "Todo Chatbot Dashboard",
+        "panels": [
+          {
+            "title": "Request Rate",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total[5m])"
+              }
+            ]
+          },
+          {
+            "title": "Error Rate",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{status=~\"5..\"}[5m])"
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+---
+# Fluent Bit ConfigMap for log aggregation
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: todo-app
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*.log
+        Parser            docker
+        Tag               kube.*
+        Refresh_Interval  5
+
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     kube.var.log.containers.
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude Off
+
+    [OUTPUT]
+        Name  stdout
+        Match *
+
+---
+# Logging sidecar (optional - for centralized logging)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  namespace: todo-app
+spec:
+  selector:
+    matchLabels:
+      app: fluent-bit
+  template:
+    metadata:
+      labels:
+        app: fluent-bit
+    spec:
+      containers:
+      - name: fluent-bit
+        image: fluent/fluent-bit:latest
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc/
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-config
+

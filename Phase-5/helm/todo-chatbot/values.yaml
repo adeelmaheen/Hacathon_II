@@ -1,0 +1,134 @@
+# Default values for todo-chatbot
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  namespace: todo-app
+
+# Backend configuration
+backend:
+  enabled: true
+  image:
+    repository: todo-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 2
+  
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 40
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  env:
+    # Non-sensitive environment variables
+    ALGORITHM: "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  
+  # Sensitive values should be set via secrets
+  # DATABASE_URL, SECRET_KEY, OPENAI_API_KEY
+
+# Frontend configuration
+frontend:
+  enabled: true
+  image:
+    repository: todo-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 2
+  
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 40
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  env:
+    # Backend API URL (will be set to backend service)
+    NEXT_PUBLIC_API_URL: "http://todo-backend:8000"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: todo.local
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /api
+          pathType: Prefix
+  # tls: []  # TLS configuration can be added here
+
+# ConfigMap for non-sensitive configuration
+configMap:
+  backend:
+    ALGORITHM: "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  frontend:
+    NEXT_PUBLIC_API_URL: "http://todo-backend:8000"
+
+# Secrets (should be created separately or via external-secrets)
+# These are placeholders - actual secrets should be created via:
+# kubectl create secret generic todo-secrets --from-literal=DATABASE_URL=... --from-literal=SECRET_KEY=... --from-literal=OPENAI_API_KEY=...
+secrets:
+  create: false  # Set to true if you want to create secrets from values (not recommended for production)
+  # DATABASE_URL: ""
+  # SECRET_KEY: ""
+  # OPENAI_API_KEY: ""
+
+

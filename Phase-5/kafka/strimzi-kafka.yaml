@@ -1,0 +1,83 @@
+# Strimzi Kafka Cluster for Minikube
+# Install Strimzi operator first: kubectl apply -f https://strimzi.io/install/latest?namespace=kafka
+
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: taskflow-kafka
+  namespace: kafka
+spec:
+  kafka:
+    replicas: 1
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+    storage:
+      type: ephemeral
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 500m
+      limits:
+        memory: 1Gi
+        cpu: 1000m
+  zookeeper:
+    replicas: 1
+    storage:
+      type: ephemeral
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 250m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+
+---
+# Kafka Topics
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: task-events
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: taskflow-kafka
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 604800000  # 7 days
+    cleanup.policy: delete
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: reminders
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: taskflow-kafka
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 604800000  # 7 days
+    cleanup.policy: delete
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: task-updates
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: taskflow-kafka
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 604800000  # 7 days
+    cleanup.policy: delete
+

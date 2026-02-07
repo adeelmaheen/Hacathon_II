@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nRemove vercel.json - use dashboard configuration instead\n\nFor Next.js monorepo deployments, configuring Root Directory in Vercel\nDashboard is the recommended approach over vercel.json to ensure proper\nframework auto-detection.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)"
+    ]
+  }
+}

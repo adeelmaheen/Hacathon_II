@@ -1,0 +1,43 @@
+{{- if .Values.frontend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "todo-chatbot.fullname" . }}-frontend
+  namespace: {{ .Values.global.namespace | default "default" }}
+  labels:
+    {{- include "todo-chatbot.frontend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "todo-chatbot.frontend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "todo-chatbot.frontend.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: frontend
+        image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+        imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.frontend.service.targetPort }}
+          protocol: TCP
+        env:
+        # From ConfigMap
+        {{- range $key, $value := .Values.configMap.frontend }}
+        - name: {{ $key }}
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "todo-chatbot.fullname" $ }}-frontend-config
+              key: {{ $key }}
+        {{- end }}
+        livenessProbe:
+          {{- toYaml .Values.frontend.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.frontend.readinessProbe | nindent 10 }}
+        resources:
+          {{- toYaml .Values.frontend.resources | nindent 10 }}
+{{- end }}
+

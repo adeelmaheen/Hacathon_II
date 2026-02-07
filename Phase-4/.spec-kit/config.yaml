@@ -1,0 +1,9 @@
+spec_dir: specs
+output_dir: .
+languages:
+  - python
+  - typescript
+formats:
+  - markdown
+  - yaml
+

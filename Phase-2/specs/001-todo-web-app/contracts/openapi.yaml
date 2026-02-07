@@ -1,0 +1,398 @@
+openapi: 3.0.3
+info:
+  title: Todo Application API
+  description: REST API for full-stack todo web application with authentication
+  version: 1.0.0
+  contact:
+    name: Hackathon II Team
+    email: support@example.com
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.todoapp.example.com
+    description: Production server (future)
+
+tags:
+  - name: Authentication
+    description: User registration and login endpoints
+  - name: Tasks
+    description: Task CRUD operations
+
+security:
+  - cookieAuth: []
+
+paths:
+  /api/auth/register:
+    post:
+      summary: Register new user account
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid input (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/login:
+    post:
+      summary: Login with email and password
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: access_token=eyJhbGc...; HttpOnly; Secure; SameSite=Lax; Max-Age=86400
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/logout:
+    post:
+      summary: Logout and clear authentication
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+
+  /api/tasks:
+    get:
+      summary: List user's tasks
+      tags: [Tasks]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, pending, completed]
+            default: all
+          description: Filter tasks by completion status
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [created, title]
+            default: created
+          description: Sort tasks by field
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+      responses:
+        '200':
+          description: Tasks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      summary: Create new task
+      tags: [Tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/tasks/{task_id}:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Task ID
+
+    get:
+      summary: Get specific task
+      tags: [Tasks]
+      responses:
+        '200':
+          description: Task retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      summary: Update task
+      tags: [Tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Delete task
+      tags: [Tasks]
+      responses:
+        '204':
+          description: Task deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/tasks/{task_id}/toggle:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Task ID
+
+    patch:
+      summary: Toggle task completion status
+      tags: [Tasks]
+      responses:
+        '200':
+          description: Task status toggled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: JWT token in HTTPOnly cookie
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, name, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: user@example.com
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: John Doe
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          example: mypassword123
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          example: mypassword123
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        name:
+          type: string
+          example: John Doe
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-01-01T10:00:00Z
+
+    TaskCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Buy groceries
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+          example: Milk, eggs, bread
+
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Buy groceries and snacks
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+          example: Milk, eggs, bread, chips
+        completed:
+          type: boolean
+          example: true
+
+    TaskResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 123
+        user_id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        title:
+          type: string
+          example: Buy groceries
+        description:
+          type: string
+          nullable: true
+          example: Milk, eggs, bread
+        completed:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-01-01T10:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2026-01-01T10:00:00Z
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: Invalid input
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: Invalid or expired authentication token
+
+    ValidationError:
+      description: Invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: Title must be between 1 and 200 characters
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: Task not found

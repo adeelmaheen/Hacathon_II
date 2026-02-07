@@ -1,0 +1,64 @@
+name: Build and Push to OCI Registry
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGION: ca-montreal-1
+  TENANCY_NAMESPACE: axkmnfbutyiu
+  REGISTRY: ca-montreal-1.ocir.io
+  REPO_NAME: todo-app
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to OCI Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.OCI_USERNAME }}
+          password: ${{ secrets.OCI_AUTH_TOKEN }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.TENANCY_NAMESPACE }}/${{ env.REPO_NAME }}/todo-backend:latest
+            ${{ env.REGISTRY }}/${{ env.TENANCY_NAMESPACE }}/${{ env.REPO_NAME }}/todo-backend:${{ github.sha }}
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          platforms: linux/amd64
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://151.145.37.198:8000
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.TENANCY_NAMESPACE }}/${{ env.REPO_NAME }}/todo-frontend:latest
+            ${{ env.REGISTRY }}/${{ env.TENANCY_NAMESPACE }}/${{ env.REPO_NAME }}/todo-frontend:${{ github.sha }}
+
+      - name: Update OKE deployments
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Images pushed successfully!"
+          echo "Backend: ${{ env.REGISTRY }}/${{ env.TENANCY_NAMESPACE }}/${{ env.REPO_NAME }}/todo-backend:latest"
+          echo "Frontend: ${{ env.REGISTRY }}/${{ env.TENANCY_NAMESPACE }}/${{ env.REPO_NAME }}/todo-frontend:latest"
+          echo ""
+          echo "To update deployments, run in Cloud Shell:"
+          echo "kubectl rollout restart deployment/todo-backend -n todo-app"
+          echo "kubectl rollout restart deployment/todo-frontend -n todo-app"
+

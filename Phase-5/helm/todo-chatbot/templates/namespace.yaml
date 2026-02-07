@@ -1,0 +1,12 @@
+{{- if .Values.global.namespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.global.namespace }}
+  labels:
+    app: {{ include "todo-chatbot.name" . }}
+    chart: {{ include "todo-chatbot.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+{{- end }}
+
